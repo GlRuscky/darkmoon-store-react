@@ -1,0 +1,20 @@
+# Opcional: o projeto roda sem Docker (veja README). Uso: docker compose up --build
+services:
+  api:
+    build: ./backend
+    ports: ["3000:3000"]
+    environment:
+      JWT_SECRET: troque-este-segredo
+      CORS_ORIGENS: http://localhost:5173
+      ADMIN_SENHA: Admin#Lua2026   # troque
+    volumes:
+      - dados:/app/data
+  site:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:3000
+    ports: ["5173:80"]
+    depends_on: [api]
+volumes:
+  dados:
