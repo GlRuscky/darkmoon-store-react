@@ -1,3 +1,4 @@
+
 import { abrirBanco } from "./infra/banco.ts";
 import { criarApp } from "./http/app.ts";
 import { SenhaHasher } from "./domain/SenhaHasher.ts";
@@ -6,20 +7,50 @@ import { UsuarioRepository } from "./infra/UsuarioRepository.ts";
 import { UsuarioService } from "./services/UsuarioService.ts";
 
 const porta = Number(process.env.PORT ?? 3000);
-const db = abrirBanco(process.env.DB_PATH ?? "data/darkmoon.db");
-const origens = process.env.CORS_ORIGENS?.split(",").map((s) => s.trim());
 
-// Administrador inicial (só é criado se o e-mail ainda não existir). Troque a senha em produção!
+const origens = process.env.CORS_ORIGENS
+  ?.split(",")
+  .map((s) => s.trim());
+
 const admin = {
   nome: process.env.ADMIN_NOME ?? "Administrador DarkMoon",
   email: process.env.ADMIN_EMAIL ?? "admin@darkmoon.com",
   cpf: process.env.ADMIN_CPF ?? "111.444.777-35",
   senha: process.env.ADMIN_SENHA ?? "Admin#Lua2026",
 };
-const criou = new UsuarioService(new UsuarioRepository(db), new SenhaHasher(), new TokenService())
-  .garantirAdmin(admin);
-if (criou) console.log(`Admin criado: ${admin.email} (a senha é a de ADMIN_SENHA ou a padrão do README)`);
 
-criarApp(db, { segredo: process.env.JWT_SECRET, origensPermitidas: origens }).listen(porta, () => {
-  console.log(`API DarkMoon rodando em http://localhost:${porta}`);
+async function iniciarServidor() {
+  const db = await abrirBanco();
+
+  try {
+    // Administrador inicial: só é criado se o e-mail ainda não existir.
+    const criou = await new UsuarioService(
+      new UsuarioRepository(db),
+      new SenhaHasher(),
+      new TokenService(),
+    ).garantirAdmin(admin);
+
+    if (criou) {
+      console.log(
+        `Admin criado: ${admin.email} (a senha é a de ADMIN_SENHA ou a padrão do README)`,
+      );
+    }
+
+    const app = criarApp(db, {
+      segredo: process.env.JWT_SECRET,
+      origensPermitidas: origens,
+    });
+
+    app.listen(porta, () => {
+      console.log(`API DarkMoon rodando em http://localhost:${porta}`);
+    });
+  } catch (erro) {
+    await db.end();
+    throw erro;
+  }
+}
+
+iniciarServidor().catch((erro) => {
+  console.error("Não foi possível iniciar a API DarkMoon:", erro);
+  process.exitCode = 1;
 });

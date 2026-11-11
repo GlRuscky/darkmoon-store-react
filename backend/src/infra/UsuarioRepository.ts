@@ -1,76 +1,144 @@
-import type { DatabaseSync } from "node:sqlite";
+
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { Banco } from "../infra/banco.ts";
 import { ErroConflito } from "../domain/erros.ts";
 import type { Papel } from "../domain/Papel.ts";
 import { Usuario } from "../domain/Usuario.ts";
 
-type Linha = {
-  id: number; nome: string; email: string; cpf: string; senha_hash: string; papel: Papel; criado_em: string;
+type Linha = RowDataPacket & {
+  id: number;
+  nome: string;
+  email: string;
+  cpf: string;
+  senha_hash: string;
+  papel: Papel;
+  criado_em: string;
 };
 
 const paraUsuario = (l: Linha): Usuario =>
   Usuario.reidratar({
-    id: l.id, nome: l.nome, email: l.email, cpf: l.cpf, senhaHash: l.senha_hash, papel: l.papel, criadoEm: l.criado_em,
+    id: l.id,
+    nome: l.nome,
+    email: l.email,
+    cpf: l.cpf,
+    senhaHash: l.senha_hash,
+    papel: l.papel,
+    criadoEm: l.criado_em,
   });
 
 export class UsuarioRepository {
-  readonly #db: DatabaseSync;
+  readonly #db: Banco;
 
-  constructor(db: DatabaseSync) {
+  constructor(db: Banco) {
     this.#db = db;
   }
 
-  buscarPorEmail(email: string): Usuario | null {
-    const l = this.#db.prepare("SELECT * FROM usuarios WHERE email = ?").get(email) as Linha | undefined;
-    return l ? paraUsuario(l) : null;
+  async buscarPorEmail(email: string): Promise<Usuario | null> {
+    const [linhas] = await this.#db.execute<Linha[]>(
+      "SELECT * FROM usuarios WHERE email = ?",
+      [email],
+    );
+
+    return linhas[0] ? paraUsuario(linhas[0]) : null;
   }
 
-  buscarPorId(id: number): Usuario | null {
-    const l = this.#db.prepare("SELECT * FROM usuarios WHERE id = ?").get(id) as Linha | undefined;
-    return l ? paraUsuario(l) : null;
+  async buscarPorId(id: number): Promise<Usuario | null> {
+    const [linhas] = await this.#db.execute<Linha[]>(
+      "SELECT * FROM usuarios WHERE id = ?",
+      [id],
+    );
+
+    return linhas[0] ? paraUsuario(linhas[0]) : null;
   }
 
-  listar(): Usuario[] {
-    return (this.#db.prepare("SELECT * FROM usuarios ORDER BY id").all() as Linha[]).map(paraUsuario);
+  async listar(): Promise<Usuario[]> {
+    const [linhas] = await this.#db.execute<Linha[]>(
+      "SELECT * FROM usuarios ORDER BY id",
+    );
+
+    return linhas.map(paraUsuario);
   }
 
-  atualizarPapel(id: number, papel: Papel): void {
-    this.#db.prepare("UPDATE usuarios SET papel = ? WHERE id = ?").run(papel, id);
+  async atualizarPapel(id: number, papel: Papel): Promise<void> {
+    await this.#db.execute(
+      "UPDATE usuarios SET papel = ? WHERE id = ?",
+      [papel, id],
+    );
   }
 
-  remover(id: number): void {
-    this.#db.prepare("DELETE FROM usuarios WHERE id = ?").run(id);
+  async remover(id: number): Promise<void> {
+    await this.#db.execute(
+      "DELETE FROM usuarios WHERE id = ?",
+      [id],
+    );
   }
 
-  existeEmail(email: string): boolean {
-    return this.#db.prepare("SELECT 1 FROM usuarios WHERE email = ?").get(email) !== undefined;
+  async existeEmail(email: string): Promise<boolean> {
+    const [linhas] = await this.#db.execute<Linha[]>(
+      "SELECT 1 AS encontrado FROM usuarios WHERE email = ?",
+      [email],
+    );
+
+    return linhas.length > 0;
   }
 
-  existeCpf(cpf: string): boolean {
-    return this.#db.prepare("SELECT 1 FROM usuarios WHERE cpf = ?").get(cpf) !== undefined;
+  async existeCpf(cpf: string): Promise<boolean> {
+    const [linhas] = await this.#db.execute<Linha[]>(
+      "SELECT 1 AS encontrado FROM usuarios WHERE cpf = ?",
+      [cpf],
+    );
+
+    return linhas.length > 0;
   }
 
   /**
-   * Prepared statement (?) em todas as queries: acaba com o risco de SQL Injection
-   * que existia no cadastro.php (que montava SQL concatenando strings).
+   * Prepared statements (?) em todas as queries:
+   * protege contra SQL Injection.
    */
-  salvar(usuario: Usuario): Usuario {
+  async salvar(usuario: Usuario): Promise<Usuario> {
     const d = usuario.paraPersistencia();
+
     try {
-      const r = this.#db
-        .prepare(
-          "INSERT INTO usuarios (nome, email, cpf, senha_hash, papel, criado_em) VALUES (?, ?, ?, ?, ?, ?)",
-        )
-        .run(d.nome, d.email, d.cpf, d.senhaHash, d.papel, d.criadoEm);
-      return usuario.comId(Number(r.lastInsertRowid));
+      const [resultado] = await this.#db.execute<ResultSetHeader>(
+        `INSERT INTO usuarios
+          (nome, email, cpf, senha_hash, papel, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          d.nome,
+          d.email,
+          d.cpf,
+          d.senhaHash,
+          d.papel,
+          d.criadoEm,
+        ],
+      );
+
+      return usuario.comId(Number(resultado.insertId));
     } catch (e) {
-      // Duas requisições simultâneas podem passar pela checagem prévia; o UNIQUE do banco é a garantia final.
-      const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("UNIQUE") && msg.includes("usuarios.email")) {
-        throw new ErroConflito({ email: "E-mail já cadastrado" });
+      const erro = e as {
+        code?: string;
+        message?: string;
+        sqlMessage?: string;
+      };
+
+      const mensagem = erro.message ?? erro.sqlMessage ?? "";
+
+      if (erro.code === "ER_DUP_ENTRY") {
+        const chave = mensagem.match(/for key ['`](.*?)['`]/)?.[1] ?? "";
+
+        if (chave.endsWith("email")) {
+          throw new ErroConflito({
+            email: "E-mail já cadastrado",
+          });
+        }
+
+        if (chave.endsWith("cpf")) {
+          throw new ErroConflito({
+            cpf: "CPF já cadastrado",
+          });
+        }
       }
-      if (msg.includes("UNIQUE") && msg.includes("usuarios.cpf")) {
-        throw new ErroConflito({ cpf: "CPF já cadastrado" });
-      }
+
       throw e;
     }
   }
