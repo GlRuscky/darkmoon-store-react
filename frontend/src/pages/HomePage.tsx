@@ -5,7 +5,10 @@ import { useProdutos } from "../hooks/useProdutos";
 const CATEGORIAS = ["Camisas", "Vestidos", "Botas", "Acessórios"] as const;
 
 export function HomePage() {
-  const { produtos, carregando, erro } = useProdutos({ embaralhar: true });
+  const { produtos, carregando, erro } = useProdutos({
+  embaralhar: true,
+  por_pagina: 50,
+  });
 
   return (
     <>

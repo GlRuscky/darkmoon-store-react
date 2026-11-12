@@ -1,4 +1,3 @@
-
 import { Cpf } from "../domain/Cpf.ts";
 import { Email } from "../domain/Email.ts";
 import { Senha } from "../domain/Senha.ts";
@@ -194,6 +193,77 @@ export class UsuarioService {
 
     await this.#repo.remover(alvoId);
   }
+  
+
+  
+  async atualizarPerfil(id: number, corpo: unknown): Promise<Usuario> {
+    const dados = (
+      typeof corpo === "object" && corpo !== null ? corpo : {}
+    ) as Record<string, unknown>;
+
+    const usuarioAtual = await this.#repo.buscarPorId(id);
+
+    if (!usuarioAtual) {
+      throw new ErroNaoEncontrado("Usuário não encontrado");
+    }
+
+    const erros: Record<string, string> = {};
+
+    let nome: string | undefined;
+    let email: Email | undefined;
+    let cpf: Cpf | null = usuarioAtual.cpf;
+
+    try {
+      nome = Usuario.validarNome(dados.nome);
+    } catch (e) {
+      if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
+      else throw e;
+    }
+
+    try {
+      email = Email.criar(dados.email);
+    } catch (e) {
+      if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
+      else throw e;
+    }
+
+    // CPF só é alterado quando o campo é enviado explicitamente.
+    if (dados.cpf !== undefined) {
+      try {
+        cpf = dados.cpf === null || dados.cpf === ""
+          ? null
+          : Cpf.criar(dados.cpf);
+      } catch (e) {
+        if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
+        else throw e;
+      }
+    }
+
+    if (Object.keys(erros).length > 0 || !nome || !email) {
+      throw new ErroValidacao(erros);
+    }
+
+    const conflitos: Record<string, string> = {};
+
+    if (await this.#repo.existeEmail(email.endereco, id)) {
+      conflitos.email = "E-mail já cadastrado";
+    }
+
+    if (cpf && await this.#repo.existeCpf(cpf.numeros, id)) {
+      conflitos.cpf = "CPF já cadastrado";
+    }
+
+    if (Object.keys(conflitos).length > 0) {
+      throw new ErroConflito(conflitos);
+    }
+
+    const usuarioAtualizado = usuarioAtual.comPerfil(nome, email, cpf);
+
+    await this.#repo.atualizarPerfil(usuarioAtualizado);
+
+    return usuarioAtualizado;
+  }
+
 
   async autenticar(
     corpo: unknown,

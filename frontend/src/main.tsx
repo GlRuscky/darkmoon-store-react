@@ -16,6 +16,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProdutosPage } from "./pages/ProdutosPage";
 import { PromocoesPage } from "./pages/PromocoesPage";
 import { SobrePage } from "./pages/SobrePage";
+import { PerfilPage } from "./pages/PerfilPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -23,21 +24,24 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <CarrinhoProvider>
           <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/produtos" element={<ProdutosPage />} />
-              <Route path="/promocoes" element={<PromocoesPage />} />
-              <Route path="/sobre" element={<SobrePage />} />
-              <Route path="/carrinho" element={<CarrinhoPage />} />
-              <Route path="/cadastro" element={<CadastroPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              {/* Só administrador: usuário comum vê "Acesso restrito"; sem login vai para /login */}
-              <Route element={<RotaProtegida papel="admin" />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/admin" element={<AdminPage />} />
-              </Route>
-              <Route path="*" element={<NotFoundPage />} />
+           <Route element={<Layout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/produtos" element={<ProdutosPage />} />
+            <Route path="/promocoes" element={<PromocoesPage />} />
+            <Route path="/sobre" element={<SobrePage />} />
+            <Route path="/carrinho" element={<CarrinhoPage />} />
+            <Route path="/cadastro" element={<CadastroPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<RotaProtegida />}>
+              <Route path="/perfil" element={<PerfilPage />} />
             </Route>
+            <Route element={<RotaProtegida papel="admin" />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+            </Route>
+
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
           </Routes>
         </CarrinhoProvider>
       </AuthProvider>

@@ -48,12 +48,23 @@ export function Navbar() {
           <Link to="/carrinho" className="btn btn-outline" aria-label={`Carrinho, ${carrinho.quantidadeTotal} itens`}>
             Carrinho <span className="badge">{carrinho.quantidadeTotal}</span>
           </Link>
-          {usuario ? (
-            <button type="button" className="btn btn-outline" onClick={sair} title={usuario.email}>
-              Sair ({usuario.nome.split(" ")[0]})
-            </button>
-          ) : (
-            <>
+                {usuario ? (
+                  <>
+                    <Link to="/perfil" className="btn btn-outline">
+                      Meu perfil
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={sair}
+                      title={usuario.email}
+                    >
+                      Sair ({usuario.nome.split(" ")[0]})
+                    </button>
+                  </>
+                ) : (
+                  <>
               <Link to="/login" className="btn btn-outline">Entrar</Link>
               <Link to="/cadastro" className="btn btn-primary">Criar conta</Link>
             </>

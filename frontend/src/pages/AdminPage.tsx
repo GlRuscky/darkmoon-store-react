@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { AdminCupons } from "../componentes/admin/AdminCupons";
 import { AdminProdutos } from "../componentes/admin/AdminProdutos";
 import { AdminUsuarios } from "../componentes/admin/AdminUsuarios";
+import { AdminCategorias } from "../componentes/admin/AdminCategorias";
 import { useAuth } from "../contexto/auth";
 
 const ABAS = [
   { id: "produtos", rotulo: "Produtos" },
   { id: "cupons", rotulo: "Cupons" },
+  { id: "categorias", rotulo: "Categorias"},
   { id: "usuarios", rotulo: "Usuários" },
 ] as const;
 type AbaId = (typeof ABAS)[number]["id"];
@@ -37,6 +39,7 @@ export function AdminPage() {
       </div>
 
       <div role="tabpanel" id={`painel-${aba}`} aria-labelledby={`aba-${aba}`} className="bloco">
+        {aba === "categorias" && <AdminCategorias />}
         {aba === "produtos" && <AdminProdutos />}
         {aba === "cupons" && <AdminCupons />}
         {aba === "usuarios" && <AdminUsuarios />}

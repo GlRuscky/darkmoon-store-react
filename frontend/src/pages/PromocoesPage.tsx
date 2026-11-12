@@ -15,8 +15,12 @@ export function PromocoesPage() {
   const [precoMax, setPrecoMax] = useState("");
   const [faixa, setFaixa] = useState({ min: "", max: "" });
 
-  const { produtos, carregando, erro } = useProdutos({ preco_min: faixa.min, preco_max: faixa.max, embaralhar: true });
-
+  const { produtos, carregando, erro } = useProdutos({
+    preco_min: faixa.min,
+    preco_max: faixa.max,
+    embaralhar: true,
+    por_pagina: 50,
+  });
   async function aplicarCupom(event: SubmitEvent) {
     event.preventDefault();
     if (!codigo.trim()) return;

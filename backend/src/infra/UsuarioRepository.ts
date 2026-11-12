@@ -1,6 +1,6 @@
 
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
-import type { Banco } from "../infra/banco.ts";
+import type { Banco } from "./banco.ts";
 import { ErroConflito } from "../domain/erros.ts";
 import type { Papel } from "../domain/Papel.ts";
 import { Usuario } from "../domain/Usuario.ts";
@@ -9,7 +9,7 @@ type Linha = RowDataPacket & {
   id: number;
   nome: string;
   email: string;
-  cpf: string;
+  cpf: string | null;
   senha_hash: string;
   papel: Papel;
   criado_em: string;
@@ -26,6 +26,18 @@ const paraUsuario = (l: Linha): Usuario =>
     criadoEm: l.criado_em,
   });
 
+const SELECT_USUARIO = `
+  SELECT
+    id_usuario AS id,
+    nome,
+    email,
+    cpf,
+    senha AS senha_hash,
+    papel,
+    data_cadastro AS criado_em
+  FROM usuarios
+`;
+
 export class UsuarioRepository {
   readonly #db: Banco;
 
@@ -35,7 +47,7 @@ export class UsuarioRepository {
 
   async buscarPorEmail(email: string): Promise<Usuario | null> {
     const [linhas] = await this.#db.execute<Linha[]>(
-      "SELECT * FROM usuarios WHERE email = ?",
+      `${SELECT_USUARIO} WHERE email = ?`,
       [email],
     );
 
@@ -44,7 +56,7 @@ export class UsuarioRepository {
 
   async buscarPorId(id: number): Promise<Usuario | null> {
     const [linhas] = await this.#db.execute<Linha[]>(
-      "SELECT * FROM usuarios WHERE id = ?",
+      `${SELECT_USUARIO} WHERE id_usuario = ?`,
       [id],
     );
 
@@ -53,7 +65,7 @@ export class UsuarioRepository {
 
   async listar(): Promise<Usuario[]> {
     const [linhas] = await this.#db.execute<Linha[]>(
-      "SELECT * FROM usuarios ORDER BY id",
+      `${SELECT_USUARIO} ORDER BY id_usuario`,
     );
 
     return linhas.map(paraUsuario);
@@ -61,39 +73,44 @@ export class UsuarioRepository {
 
   async atualizarPapel(id: number, papel: Papel): Promise<void> {
     await this.#db.execute(
-      "UPDATE usuarios SET papel = ? WHERE id = ?",
+      "UPDATE usuarios SET papel = ? WHERE id_usuario = ?",
       [papel, id],
     );
   }
 
   async remover(id: number): Promise<void> {
     await this.#db.execute(
-      "DELETE FROM usuarios WHERE id = ?",
+      "DELETE FROM usuarios WHERE id_usuario = ?",
       [id],
     );
   }
 
-  async existeEmail(email: string): Promise<boolean> {
-    const [linhas] = await this.#db.execute<Linha[]>(
-      "SELECT 1 AS encontrado FROM usuarios WHERE email = ?",
-      [email],
+  
+  async existeEmail(email: string, excetoId?: number): Promise<boolean> {
+    const [linhas] = await this.#db.execute<RowDataPacket[]>(
+      `SELECT 1 AS encontrado
+       FROM usuarios
+       WHERE email = ?
+       AND (? IS NULL OR id_usuario <> ?)`,
+      [email, excetoId ?? null, excetoId ?? null],
     );
-
     return linhas.length > 0;
   }
 
-  async existeCpf(cpf: string): Promise<boolean> {
-    const [linhas] = await this.#db.execute<Linha[]>(
-      "SELECT 1 AS encontrado FROM usuarios WHERE cpf = ?",
-      [cpf],
+  async existeCpf(cpf: string, excetoId?: number): Promise<boolean> {
+    const [linhas] = await this.#db.execute<RowDataPacket[]>(
+      `SELECT 1 AS encontrado
+       FROM usuarios
+       WHERE cpf = ?
+       AND (? IS NULL OR id_usuario <> ?)`,
+      [cpf, excetoId ?? null, excetoId ?? null],
     );
-
     return linhas.length > 0;
   }
+
 
   /**
-   * Prepared statements (?) em todas as queries:
-   * protege contra SQL Injection.
+   * Utiliza prepared statements para proteger contra SQL Injection.
    */
   async salvar(usuario: Usuario): Promise<Usuario> {
     const d = usuario.paraPersistencia();
@@ -101,15 +118,14 @@ export class UsuarioRepository {
     try {
       const [resultado] = await this.#db.execute<ResultSetHeader>(
         `INSERT INTO usuarios
-          (nome, email, cpf, senha_hash, papel, criado_em)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          (nome, email, cpf, senha, papel)
+         VALUES (?, ?, ?, ?, ?)`,
         [
           d.nome,
           d.email,
           d.cpf,
           d.senhaHash,
           d.papel,
-          d.criadoEm,
         ],
       );
 
@@ -124,18 +140,53 @@ export class UsuarioRepository {
       const mensagem = erro.message ?? erro.sqlMessage ?? "";
 
       if (erro.code === "ER_DUP_ENTRY") {
-        const chave = mensagem.match(/for key ['`](.*?)['`]/)?.[1] ?? "";
-
-        if (chave.endsWith("email")) {
+        if (mensagem.includes("email")) {
           throw new ErroConflito({
             email: "E-mail já cadastrado",
           });
         }
 
-        if (chave.endsWith("cpf")) {
+        if (mensagem.includes("cpf")) {
           throw new ErroConflito({
             cpf: "CPF já cadastrado",
           });
+        }
+      }
+
+      throw e;
+    }
+  }
+
+  async atualizarPerfil(usuario: Usuario): Promise<void> {
+    const dados = usuario.paraPersistencia();
+
+    if (dados.id === null) {
+      throw new Error("Não é possível atualizar usuário sem ID");
+    }
+
+    try {
+      await this.#db.execute(
+        `UPDATE usuarios
+         SET nome = ?, email = ?, cpf = ?
+         WHERE id_usuario = ?`,
+        [dados.nome, dados.email, dados.cpf, dados.id],
+      );
+    } catch (e) {
+      const erro = e as {
+        code?: string;
+        message?: string;
+        sqlMessage?: string;
+      };
+
+      const mensagem = erro.message ?? erro.sqlMessage ?? "";
+
+      if (erro.code === "ER_DUP_ENTRY") {
+        if (mensagem.includes("email")) {
+          throw new ErroConflito({ email: "E-mail já cadastrado" });
+        }
+
+        if (mensagem.includes("cpf")) {
+          throw new ErroConflito({ cpf: "CPF já cadastrado" });
         }
       }
 

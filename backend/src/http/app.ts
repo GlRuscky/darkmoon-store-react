@@ -164,18 +164,34 @@ export function criarApp(
         });
       }
 
+
+      if (rota === "PUT /usuarios/me") {
+        const sessao = exigirLogin(req);
+
+        const usuario = await usuarios.atualizarPerfil(
+          sessao.sub,
+          await lerJson(req),
+        );
+
+        return enviar(res, 200, usuario.paraResposta());
+      }
+
+      
       if (rota === "GET /produtos") {
         const q = url.searchParams;
 
-        const produtos = await loja.listarProdutos({
+        const resultado = await loja.listarProdutos({
           busca: q.get("busca")?.trim() || undefined,
           categoria: q.get("categoria")?.trim() || undefined,
           precoMin: numeroOpcional(q.get("preco_min")),
           precoMax: numeroOpcional(q.get("preco_max")),
+          pagina: numeroOpcional(q.get("pagina")),
+          porPagina: numeroOpcional(q.get("por_pagina")),
         });
 
-        return enviar(res, 200, produtos);
+        return enviar(res, 200, resultado);
       }
+
 
       if (req.method === "GET" && url.pathname.startsWith("/cupons/")) {
         const codigo = decodeURIComponent(
@@ -196,7 +212,7 @@ export function criarApp(
         const admin = await exigirAdmin(req);
 
         const m = url.pathname.match(
-          /^\/admin\/(produtos|cupons|usuarios)(?:\/([^/]+))?$/,
+          /^\/admin\/(produtos|cupons|categorias|usuarios)(?:\/([^/]+))?$/,
         );
 
         if (!m) {
@@ -207,6 +223,36 @@ export function criarApp(
         const chave =
           m[2] === undefined ? undefined : decodeURIComponent(m[2]);
         const metodo = req.method ?? "GET";
+
+        if (recurso === "categorias") {
+          if (chave === undefined && metodo === "GET") {
+            return enviar(res, 200, await catalogo.listarCategorias());
+          }
+
+          if (chave === undefined && metodo === "POST") {
+            return enviar(
+              res,
+              201,
+              await catalogo.criarCategoria(await lerJson(req)),
+            );
+          }
+
+          if (chave !== undefined && metodo === "PUT") {
+            return enviar(
+              res,
+              200,
+              await catalogo.atualizarCategoria(
+                idNumerico(chave),
+                await lerJson(req),
+              ),
+            );
+          }
+
+          if (chave !== undefined && metodo === "DELETE") {
+            await catalogo.removerCategoria(idNumerico(chave));
+            return semConteudo(res);
+          }
+        }
 
         if (recurso === "produtos") {
           if (chave === undefined && metodo === "GET") {

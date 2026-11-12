@@ -15,7 +15,7 @@ export type UsuarioLogado = {
   id: number;
   nome: string;
   email: string;
-  cpf: string; // já vem mascarado da API
+  cpf: string | null;
   papel: Papel;
 };
 
@@ -27,6 +27,11 @@ export type CupomAdmin = {
   percentual: number;
   ativo: boolean;
 };
+
+  export type CategoriaAdmin = {
+    id: number;
+    nome: string;
+  };
 
 export type ProdutoDashboard = {
   id: number;

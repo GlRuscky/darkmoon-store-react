@@ -1,0 +1,11 @@
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependências e arquivos gerados
+node_modules/
+dist/

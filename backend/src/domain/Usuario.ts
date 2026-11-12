@@ -1,3 +1,4 @@
+
 import { Cpf } from "./Cpf.ts";
 import { Email } from "./Email.ts";
 import { ErroValidacao } from "./erros.ts";
@@ -7,7 +8,7 @@ export type DadosPersistidos = {
   id: number | null;
   nome: string;
   email: string;
-  cpf: string;
+  cpf: string | null;
   senhaHash: string;
   papel: Papel;
   criadoEm: string;
@@ -17,16 +18,16 @@ export type UsuarioPublico = {
   id: number | null;
   nome: string;
   email: string;
-  cpf: string;
+  cpf: string | null;
   papel: Papel;
   criadoEm: string;
 };
 
-  export class Usuario {
+export class Usuario {
   readonly #id: number | null;
   #nome: string;
   readonly #email: Email;
-  readonly #cpf: Cpf;
+  readonly #cpf: Cpf | null;
   readonly #senhaHash: string;
   readonly #papel: Papel;
   readonly #criadoEm: Date;
@@ -35,7 +36,7 @@ export type UsuarioPublico = {
     id?: number | null;
     nome: string;
     email: Email;
-    cpf: Cpf;
+    cpf: Cpf | null;
     senhaHash: string;
     papel?: Papel;
     criadoEm?: Date;
@@ -43,6 +44,7 @@ export type UsuarioPublico = {
     if (!args.senhaHash) {
       throw new ErroValidacao({ senha: "Senha é obrigatória" });
     }
+
     this.#id = args.id ?? null;
     this.#nome = Usuario.validarNome(args.nome);
     this.#email = args.email;
@@ -56,18 +58,27 @@ export type UsuarioPublico = {
     if (typeof entrada !== "string" || entrada.trim() === "") {
       throw new ErroValidacao({ nome: "Nome é obrigatório" });
     }
-    // colapsa espaços repetidos: "  Ana   Maria " -> "Ana Maria"
+
     const nome = entrada.trim().replace(/\s+/g, " ");
+
     if (nome.length < 3) {
-      throw new ErroValidacao({ nome: "Nome deve ter pelo menos 3 caracteres" });
+      throw new ErroValidacao({
+        nome: "Nome deve ter pelo menos 3 caracteres",
+      });
     }
+
     if (nome.length > 150) {
-      throw new ErroValidacao({ nome: "Nome deve ter no máximo 150 caracteres" });
+      throw new ErroValidacao({
+        nome: "Nome deve ter no máximo 150 caracteres",
+      });
     }
-    // letras (com acento), espaço, apóstrofo, ponto e hífen
+
     if (!/^[\p{L}][\p{L}\s'.\-]*$/u.test(nome)) {
-      throw new ErroValidacao({ nome: "Nome deve conter apenas letras" });
+      throw new ErroValidacao({
+        nome: "Nome deve conter apenas letras",
+      });
     }
+
     return nome;
   }
 
@@ -76,7 +87,7 @@ export type UsuarioPublico = {
       id: d.id,
       nome: d.nome,
       email: Email.criar(d.email),
-      cpf: Cpf.criar(d.cpf),
+      cpf: d.cpf === null ? null : Cpf.criar(d.cpf),
       senhaHash: d.senhaHash,
       papel: d.papel,
       criadoEm: new Date(d.criadoEm),
@@ -99,7 +110,7 @@ export type UsuarioPublico = {
     return this.#email.endereco;
   }
 
-  get cpf(): Cpf {
+  get cpf(): Cpf | null {
     return this.#cpf;
   }
 
@@ -115,7 +126,10 @@ export type UsuarioPublico = {
     return new Date(this.#criadoEm);
   }
 
-  conferirSenha(texto: string, verificador: { verificar(t: string, h: string): boolean }): boolean {
+  conferirSenha(
+    texto: string,
+    verificador: { verificar(t: string, h: string): boolean },
+  ): boolean {
     return verificador.verificar(texto, this.#senhaHash);
   }
 
@@ -143,12 +157,26 @@ export type UsuarioPublico = {
     });
   }
 
+
+  comPerfil(nome: string, email: Email, cpf: Cpf | null): Usuario {
+    return new Usuario({
+      id: this.#id,
+      nome,
+      email,
+      cpf,
+      senhaHash: this.#senhaHash,
+      papel: this.#papel,
+      criadoEm: this.#criadoEm,
+    });
+  }
+
+
   paraPersistencia(): DadosPersistidos {
     return {
       id: this.#id,
       nome: this.#nome,
       email: this.#email.endereco,
-      cpf: this.#cpf.numeros,
+      cpf: this.#cpf?.numeros ?? null,
       senhaHash: this.#senhaHash,
       papel: this.#papel,
       criadoEm: this.#criadoEm.toISOString(),
@@ -160,7 +188,7 @@ export type UsuarioPublico = {
       id: this.#id,
       nome: this.#nome,
       email: this.#email.endereco,
-      cpf: this.#cpf.mascarado,
+      cpf: this.#cpf?.mascarado ?? null,
       papel: this.#papel,
       criadoEm: this.#criadoEm.toISOString(),
     };
