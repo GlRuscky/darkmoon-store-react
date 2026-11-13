@@ -55,3 +55,34 @@ export type DashboardDados = {
   produtos: ProdutoDashboard[];
   vendasPorMes: VendaMensal[];
 };
+
+
+export type StatusPedido =
+  | "Pendente"
+  | "Pago"
+  | "Enviado"
+  | "Entregue"
+  | "Cancelado";
+
+export type PedidoAdmin = {
+  id: number;
+  cliente: string;
+  email: string;
+  data: string;
+  status: StatusPedido;
+  total: number;
+};
+
+export type ItemPedidoAdmin = {
+  produtoId: number;
+  nome: string;
+  imagem: string | null;
+  quantidade: number;
+  precoUnitario: number;
+  subtotal: number;
+};
+
+export type PedidoDetalheAdmin = PedidoAdmin & {
+  itens: ItemPedidoAdmin[];
+};
+

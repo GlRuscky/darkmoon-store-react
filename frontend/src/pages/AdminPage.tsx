@@ -5,12 +5,14 @@ import { AdminProdutos } from "../componentes/admin/AdminProdutos";
 import { AdminUsuarios } from "../componentes/admin/AdminUsuarios";
 import { AdminCategorias } from "../componentes/admin/AdminCategorias";
 import { useAuth } from "../contexto/auth";
+import { AdminPedidos } from "../componentes/admin/AdminPedidos";
 
 const ABAS = [
   { id: "produtos", rotulo: "Produtos" },
   { id: "cupons", rotulo: "Cupons" },
   { id: "categorias", rotulo: "Categorias"},
   { id: "usuarios", rotulo: "Usuários" },
+  { id: "pedidos", rotulo: "Pedidos"},
 ] as const;
 type AbaId = (typeof ABAS)[number]["id"];
 
@@ -43,6 +45,7 @@ export function AdminPage() {
         {aba === "produtos" && <AdminProdutos />}
         {aba === "cupons" && <AdminCupons />}
         {aba === "usuarios" && <AdminUsuarios />}
+        {aba === "pedidos" && <AdminPedidos />}
       </div>
     </section>
   );

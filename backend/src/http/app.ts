@@ -14,6 +14,7 @@ import { UsuarioRepository } from "../infra/UsuarioRepository.ts";
 import { CatalogoAdminService } from "../services/CatalogoAdminService.ts";
 import { LojaService } from "../services/LojaService.ts";
 import { UsuarioService } from "../services/UsuarioService.ts";
+import { PedidosAdminService } from "../services/PedidosAdminService.ts";
 
 const LIMITE_CORPO = 10_000;
 
@@ -38,6 +39,7 @@ export function criarApp(
   );
   const loja = new LojaService(db);
   const catalogo = new CatalogoAdminService(db);
+  const pedidos = new PedidosAdminService(db);
 
   const origens = opts.origensPermitidas ?? [
     "http://localhost:5173",
@@ -206,13 +208,13 @@ export function criarApp(
         await exigirAdmin(req);
         return enviar(res, 200, await loja.dashboard());
       }
-
+      
       // ---------- Painel admin: tudo abaixo exige login + papel admin ----------
       if (url.pathname.startsWith("/admin/")) {
         const admin = await exigirAdmin(req);
 
         const m = url.pathname.match(
-          /^\/admin\/(produtos|cupons|categorias|usuarios)(?:\/([^/]+))?$/,
+          /^\/admin\/(produtos|cupons|categorias|usuarios|pedidos)(?:\/([^/]+))?$/,
         );
 
         if (!m) {
@@ -223,6 +225,77 @@ export function criarApp(
         const chave =
           m[2] === undefined ? undefined : decodeURIComponent(m[2]);
         const metodo = req.method ?? "GET";
+
+        
+        if (recurso === "pedidos") {
+          if (chave === undefined && metodo === "GET") {
+            const consultaPedidos = new URL(
+              req.url ?? "/",
+              "http://localhost",
+            );
+
+            const pagina = numeroOpcional(
+              consultaPedidos.searchParams.get("pagina"),
+            );
+
+            const porPagina = numeroOpcional(
+              consultaPedidos.searchParams.get("por_pagina"),
+            );
+
+            return enviar(
+              res,
+              200,
+              await pedidos.listarPedidos(pagina, porPagina),
+            );
+          }
+
+          if (chave === undefined && metodo === "POST") {
+            return enviar(
+              res,
+              201,
+              await pedidos.criar(await lerJson(req)),
+            );
+          }
+
+          if (chave !== undefined && metodo === "GET") {
+            return enviar(
+              res,
+              200,
+              await pedidos.buscarPedido(idNumerico(chave)),
+            );
+          }
+
+          if (chave !== undefined && metodo === "PUT") {
+            return enviar(
+              res,
+              200,
+              await pedidos.atualizar(
+                idNumerico(chave),
+                await lerJson(req),
+              ),
+            );
+          }
+
+          if (chave !== undefined && metodo === "PATCH") {
+            return enviar(
+              res,
+              200,
+              await pedidos.atualizarStatus(
+                idNumerico(chave),
+                await lerJson(req),
+              ),
+            );
+          }
+
+          if (chave !== undefined && metodo === "DELETE") {
+            return enviar(
+              res,
+              200,
+              await pedidos.excluir(idNumerico(chave)),
+            );
+          }
+        }
+
 
         if (recurso === "categorias") {
           if (chave === undefined && metodo === "GET") {
