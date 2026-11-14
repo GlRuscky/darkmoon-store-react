@@ -158,13 +158,13 @@ export class Usuario {
   }
 
 
-  comPerfil(nome: string, email: Email, cpf: Cpf | null): Usuario {
+  comPerfil(nome: string, cpf: Cpf, senhaHash: string): Usuario {
     return new Usuario({
       id: this.#id,
       nome,
-      email,
+      email: this.#email,
       cpf,
-      senhaHash: this.#senhaHash,
+      senhaHash,
       papel: this.#papel,
       criadoEm: this.#criadoEm,
     });

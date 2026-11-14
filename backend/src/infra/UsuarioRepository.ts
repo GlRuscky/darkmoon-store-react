@@ -158,39 +158,35 @@ export class UsuarioRepository {
   }
 
   async atualizarPerfil(usuario: Usuario): Promise<void> {
-    const dados = usuario.paraPersistencia();
+  const dados = usuario.paraPersistencia();
 
-    if (dados.id === null) {
-      throw new Error("Não é possível atualizar usuário sem ID");
+  if (dados.id === null) {
+    throw new Error("Não é possível atualizar usuário sem ID");
+  }
+
+  try {
+    await this.#db.execute(
+      `UPDATE usuarios
+       SET nome = ?, cpf = ?, senha = ?
+       WHERE id_usuario = ?`,
+      [dados.nome, dados.cpf, dados.senhaHash, dados.id],
+    );
+  } catch (e) {
+    const erro = e as {
+      code?: string;
+      message?: string;
+      sqlMessage?: string;
+    };
+
+    const mensagem = erro.message ?? erro.sqlMessage ?? "";
+
+    if (erro.code === "ER_DUP_ENTRY" && mensagem.includes("cpf")) {
+      throw new ErroConflito({
+        cpf: "CPF já cadastrado",
+      });
     }
 
-    try {
-      await this.#db.execute(
-        `UPDATE usuarios
-         SET nome = ?, email = ?, cpf = ?
-         WHERE id_usuario = ?`,
-        [dados.nome, dados.email, dados.cpf, dados.id],
-      );
-    } catch (e) {
-      const erro = e as {
-        code?: string;
-        message?: string;
-        sqlMessage?: string;
-      };
-
-      const mensagem = erro.message ?? erro.sqlMessage ?? "";
-
-      if (erro.code === "ER_DUP_ENTRY") {
-        if (mensagem.includes("email")) {
-          throw new ErroConflito({ email: "E-mail já cadastrado" });
-        }
-
-        if (mensagem.includes("cpf")) {
-          throw new ErroConflito({ cpf: "CPF já cadastrado" });
-        }
-      }
-
-      throw e;
+    throw e;
     }
   }
 }

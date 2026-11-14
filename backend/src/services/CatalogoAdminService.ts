@@ -27,6 +27,14 @@ type CategoriaLinha = RowDataPacket & {
   id_categoria: number;
 };
 
+type ResultadoPaginado<T> = {
+  dados: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
+};
+
 export class CatalogoAdminService {
   readonly #db: Banco;
 
@@ -83,19 +91,61 @@ export class CatalogoAdminService {
 
   // ---------- Categorias ----------
 
-  async listarCategorias(): Promise<{ id: number; nome: string }[]> {
+  async listarCategorias(
+    paginaSolicitada = 1,
+    porPaginaSolicitada = 8,
+  ): Promise<ResultadoPaginado<{ id: number; nome: string }>> {
+    const porPagina = Math.min(
+      50,
+      Math.max(
+        1,
+        Number.isFinite(porPaginaSolicitada)
+          ? Math.floor(porPaginaSolicitada)
+          : 8,
+      ),
+    );
+
+    const [contagem] = await this.#db.execute<
+      (RowDataPacket & { total: number })[]
+    >(
+      `SELECT COUNT(*) AS total
+      FROM categorias`,
+    );
+
+    const total = Number(contagem[0]?.total ?? 0);
+    const totalPaginas = Math.ceil(total / porPagina);
+
+    const paginaInformada = Number.isFinite(paginaSolicitada)
+      ? Math.max(1, Math.floor(paginaSolicitada))
+      : 1;
+
+    const pagina = Math.min(
+      paginaInformada,
+      Math.max(1, totalPaginas),
+    );
+
+    const offset = (pagina - 1) * porPagina;
+
     const [linhas] = await this.#db.execute<
       (RowDataPacket & { id_categoria: number; nome: string })[]
     >(
       `SELECT id_categoria, nome
       FROM categorias
-      ORDER BY nome`,
+      ORDER BY nome
+      LIMIT ? OFFSET ?`,
+      [porPagina, offset],
     );
 
-    return linhas.map((categoria) => ({
-      id: categoria.id_categoria,
-      nome: categoria.nome,
-    }));
+    return {
+      dados: linhas.map((categoria) => ({
+        id: categoria.id_categoria,
+        nome: categoria.nome,
+      })),
+      total,
+      pagina,
+      porPagina,
+      totalPaginas,
+    };
   }
 
     async criarCategoria(corpo: unknown): Promise<{ id: number; nome: string }> {
@@ -239,32 +289,74 @@ export class CatalogoAdminService {
 
   // ---------- Produtos ----------
 
-  async listarProdutos(): Promise<ProdutoLinha[]> {
-    const [linhas] = await this.#db.execute<ProdutoLinha[]>(
-      `SELECT
-         p.id_produto AS id,
-         p.nome,
-         p.descricao,
-         p.preco,
-         p.estoque,
-         p.imagem,
-         p.genero,
-         COALESCE(
-           (
-             SELECT c.nome
-             FROM produto_categoria pc
-             INNER JOIN categorias c
-               ON c.id_categoria = pc.id_categoria
-             WHERE pc.id_produto = p.id_produto
-             LIMIT 1
-           ),
-           ''
-         ) AS categoria
-       FROM produtos p
-       ORDER BY p.id_produto`,
+  async listarProdutos(
+    paginaSolicitada = 1,
+    porPaginaSolicitada = 8,
+  ): Promise<ResultadoPaginado<ProdutoLinha>> {
+    const porPagina = Math.min(
+      50,
+      Math.max(
+        1,
+        Number.isFinite(porPaginaSolicitada)
+          ? Math.floor(porPaginaSolicitada)
+          : 8,
+      ),
     );
 
-    return linhas;
+    const [contagem] = await this.#db.execute<
+      (RowDataPacket & { total: number })[]
+    >(
+      `SELECT COUNT(*) AS total
+      FROM produtos`,
+    );
+
+    const total = Number(contagem[0]?.total ?? 0);
+    const totalPaginas = Math.ceil(total / porPagina);
+
+    const paginaInformada = Number.isFinite(paginaSolicitada)
+      ? Math.max(1, Math.floor(paginaSolicitada))
+      : 1;
+
+    const pagina = Math.min(
+      paginaInformada,
+      Math.max(1, totalPaginas),
+    );
+
+    const offset = (pagina - 1) * porPagina;
+
+    const [linhas] = await this.#db.execute<ProdutoLinha[]>(
+      `SELECT
+        p.id_produto AS id,
+        p.nome,
+        p.descricao,
+        p.preco,
+        p.estoque,
+        p.imagem,
+        p.genero,
+        COALESCE(
+          (
+            SELECT c.nome
+            FROM produto_categoria pc
+            INNER JOIN categorias c
+              ON c.id_categoria = pc.id_categoria
+            WHERE pc.id_produto = p.id_produto
+            LIMIT 1
+          ),
+          ''
+        ) AS categoria
+      FROM produtos p
+      ORDER BY p.id_produto
+      LIMIT ? OFFSET ?`,
+      [porPagina, offset],
+    );
+
+    return {
+      dados: linhas,
+      total,
+      pagina,
+      porPagina,
+      totalPaginas,
+    };
   }
 
   async #produtoPorId(id: number): Promise<ProdutoLinha> {
@@ -425,26 +517,72 @@ export class CatalogoAdminService {
 
   // ---------- Cupons ----------
 
-  async listarCupons(): Promise<
-    { codigo: string; percentual: number; ativo: boolean }[]
+  async listarCupons(
+    paginaSolicitada = 1,
+    porPaginaSolicitada = 8,
+  ): Promise<
+    ResultadoPaginado<{
+      codigo: string;
+      percentual: number;
+      ativo: boolean;
+    }>
   > {
-    const [linhas] = await this.#db.execute<CupomLinha[]>(
-      `SELECT
-         codigo,
-         percentual_desconto AS percentual,
-         ativo
-       FROM cupons
-       ORDER BY codigo`,
+    const porPagina = Math.min(
+      50,
+      Math.max(
+        1,
+        Number.isFinite(porPaginaSolicitada)
+          ? Math.floor(porPaginaSolicitada)
+          : 8,
+      ),
     );
 
-    return linhas.map((c) => ({
-      codigo: c.codigo,
-      percentual: Number(c.percentual),
-      ativo: Number(c.ativo) === 1,
-    }));
+    const [contagem] = await this.#db.execute<
+      (RowDataPacket & { total: number })[]
+    >(
+      `SELECT COUNT(*) AS total
+      FROM cupons`,
+    );
+
+    const total = Number(contagem[0]?.total ?? 0);
+    const totalPaginas = Math.ceil(total / porPagina);
+
+    const paginaInformada = Number.isFinite(paginaSolicitada)
+      ? Math.max(1, Math.floor(paginaSolicitada))
+      : 1;
+
+    const pagina = Math.min(
+      paginaInformada,
+      Math.max(1, totalPaginas),
+    );
+
+    const offset = (pagina - 1) * porPagina;
+
+    const [linhas] = await this.#db.execute<CupomLinha[]>(
+      `SELECT
+        codigo,
+        percentual_desconto AS percentual,
+        ativo
+      FROM cupons
+      ORDER BY codigo
+      LIMIT ? OFFSET ?`,
+      [porPagina, offset],
+    );
+
+    return {
+      dados: linhas.map((c) => ({
+        codigo: c.codigo,
+        percentual: Number(c.percentual),
+        ativo: Number(c.ativo) === 1,
+      })),
+      total,
+      pagina,
+      porPagina,
+      totalPaginas,
+    };
   }
 
-  async #cupomPorCodigo(
+    async #cupomPorCodigo(
     codigo: string,
   ): Promise<{ codigo: string; percentual: number; ativo: boolean }> {
     const [linhas] = await this.#db.execute<CupomLinha[]>(
@@ -469,6 +607,8 @@ export class CatalogoAdminService {
       ativo: Number(c.ativo) === 1,
     };
   }
+
+
 
   async criarCupom(
     corpo: unknown,

@@ -299,7 +299,21 @@ export function criarApp(
 
         if (recurso === "categorias") {
           if (chave === undefined && metodo === "GET") {
-            return enviar(res, 200, await catalogo.listarCategorias());
+            const consulta = new URL(req.url ?? "/", "http://localhost");
+
+            const pagina = numeroOpcional(
+              consulta.searchParams.get("pagina"),
+            );
+
+            const porPagina = numeroOpcional(
+              consulta.searchParams.get("por_pagina"),
+            );
+
+            return enviar(
+              res,
+              200,
+              await catalogo.listarCategorias(pagina, porPagina),
+            );
           }
 
           if (chave === undefined && metodo === "POST") {
@@ -329,7 +343,21 @@ export function criarApp(
 
         if (recurso === "produtos") {
           if (chave === undefined && metodo === "GET") {
-            return enviar(res, 200, await catalogo.listarProdutos());
+            const consulta = new URL(req.url ?? "/", "http://localhost");
+
+            const pagina = numeroOpcional(
+              consulta.searchParams.get("pagina"),
+            );
+
+            const porPagina = numeroOpcional(
+              consulta.searchParams.get("por_pagina"),
+            );
+
+            return enviar(
+              res,
+              200,
+              await catalogo.listarProdutos(pagina, porPagina),
+            );
           }
 
           if (chave === undefined && metodo === "POST") {
@@ -359,7 +387,21 @@ export function criarApp(
 
         if (recurso === "cupons") {
           if (chave === undefined && metodo === "GET") {
-            return enviar(res, 200, await catalogo.listarCupons());
+            const consulta = new URL(req.url ?? "/", "http://localhost");
+
+            const pagina = numeroOpcional(
+              consulta.searchParams.get("pagina"),
+            );
+
+            const porPagina = numeroOpcional(
+              consulta.searchParams.get("por_pagina"),
+            );
+
+            return enviar(
+              res,
+              200,
+              await catalogo.listarCupons(pagina, porPagina),
+            );
           }
 
           if (chave === undefined && metodo === "POST") {

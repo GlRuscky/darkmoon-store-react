@@ -196,7 +196,10 @@ export class UsuarioService {
   
 
   
-  async atualizarPerfil(id: number, corpo: unknown): Promise<Usuario> {
+    async atualizarPerfil(
+    id: number,
+    corpo: unknown,
+  ): Promise<Usuario> {
     const dados = (
       typeof corpo === "object" && corpo !== null ? corpo : {}
     ) as Record<string, unknown>;
@@ -210,54 +213,49 @@ export class UsuarioService {
     const erros: Record<string, string> = {};
 
     let nome: string | undefined;
-    let email: Email | undefined;
-    let cpf: Cpf | null = usuarioAtual.cpf;
+    let cpf: Cpf | undefined;
+    let senha: Senha | undefined;
 
-    try {
-      nome = Usuario.validarNome(dados.nome);
-    } catch (e) {
-      if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
-      else throw e;
-    }
-
-    try {
-      email = Email.criar(dados.email);
-    } catch (e) {
-      if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
-      else throw e;
-    }
-
-    // CPF só é alterado quando o campo é enviado explicitamente.
-    if (dados.cpf !== undefined) {
+    const tentar = <T>(fn: () => T): T | undefined => {
       try {
-        cpf = dados.cpf === null || dados.cpf === ""
-          ? null
-          : Cpf.criar(dados.cpf);
+        return fn();
       } catch (e) {
-        if (e instanceof ErroValidacao) Object.assign(erros, e.campos);
-        else throw e;
-      }
-    }
+        if (e instanceof ErroValidacao) {
+          Object.assign(erros, e.campos);
+          return undefined;
+        }
 
-    if (Object.keys(erros).length > 0 || !nome || !email) {
+        throw e;
+      }
+    };
+
+    nome = tentar(() => Usuario.validarNome(dados.nome));
+    cpf = tentar(() => Cpf.criar(dados.cpf));
+    senha = tentar(() => Senha.criar(dados.senha));
+
+    if (Object.keys(erros).length > 0) {
       throw new ErroValidacao(erros);
     }
 
-    const conflitos: Record<string, string> = {};
-
-    if (await this.#repo.existeEmail(email.endereco, id)) {
-      conflitos.email = "E-mail já cadastrado";
+    if (!nome || !cpf || !senha) {
+      throw new ErroValidacao({
+        geral: "Dados inválidos",
+      });
     }
 
-    if (cpf && await this.#repo.existeCpf(cpf.numeros, id)) {
-      conflitos.cpf = "CPF já cadastrado";
+    if (await this.#repo.existeCpf(cpf.numeros, id)) {
+      throw new ErroConflito({
+        cpf: "CPF já cadastrado",
+      });
     }
 
-    if (Object.keys(conflitos).length > 0) {
-      throw new ErroConflito(conflitos);
-    }
+    const senhaHash = senha.gerarHash(this.#hasher);
 
-    const usuarioAtualizado = usuarioAtual.comPerfil(nome, email, cpf);
+    const usuarioAtualizado = usuarioAtual.comPerfil(
+      nome,
+      cpf,
+      senhaHash,
+    );
 
     await this.#repo.atualizarPerfil(usuarioAtualizado);
 
