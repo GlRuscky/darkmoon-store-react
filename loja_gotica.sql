@@ -1,7 +1,11 @@
-
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
 
 DELIMITER $$
 
@@ -286,29 +290,6 @@ INSERT INTO `usuarios` (`id_usuario`, `nome`, `email`, `senha`, `endereco`, `dat
 (3, 'JOAO_larp', 'Larplarp@gmail.com', '$2y$10$6K3G2Fzgv/6t5nSZILcdBOi8ePg4CoIUQYzkS6NT79svStSbtk8Ri', 'rua jucelino', '2026-09-14 15:51:36');
 
 -- --------------------------------------------------------
-
---
--- Estrutura stand-in para view `vw_produtos_completo`
--- (Veja abaixo para a visão atual)
---
-CREATE TABLE `vw_produtos_completo` (
-`id_produto` int(11)
-,`nome` varchar(150)
-,`descricao` text
-,`preco` decimal(10,2)
-,`estoque` int(11)
-,`genero` enum('Masculino','Feminino','Unissex')
-,`categoria` varchar(100)
-,`quantidade_vendida` decimal(32,0)
-,`faturamento_gerado` decimal(42,2)
-);
-
--- --------------------------------------------------------
-
---
--- Estrutura para view `vw_produtos_completo`
---
-CREATE TABLE IF NOT EXISTS `vw_produtos_completo`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vw_produtos_completo`  AS SELECT `p`.`id_produto` AS `id_produto`, `p`.`nome` AS `nome`, `p`.`descricao` AS `descricao`, `p`.`preco` AS `preco`, `p`.`estoque` AS `estoque`, `p`.`genero` AS `genero`, `c`.`nome` AS `categoria`, coalesce(sum(`ip`.`quantidade`),0) AS `quantidade_vendida`, coalesce(sum(`ip`.`quantidade` * `ip`.`preco_unitario`),0) AS `faturamento_gerado` FROM (((`produtos` `p` left join `produto_categoria` `pc` on(`pc`.`id_produto` = `p`.`id_produto`)) left join `categorias` `c` on(`c`.`id_categoria` = `pc`.`id_categoria`)) left join `itens_pedido` `ip` on(`ip`.`id_produto` = `p`.`id_produto`)) GROUP BY `p`.`id_produto`, `p`.`nome`, `p`.`descricao`, `p`.`preco`, `p`.`estoque`, `p`.`genero`, `c`.`nome` ;
 

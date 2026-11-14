@@ -1,5 +1,5 @@
-
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api/axios";
 import type { CategoriaAdmin } from "../../api/tipos";
 import { useErroAdmin } from "../../hooks/useErroAdmin";
@@ -14,21 +14,27 @@ type CategoriasPaginadas = {
   totalPaginas: number;
 };
 
+type Aviso = {
+  tipo: "erro" | "ok";
+  texto: string;
+};
+
+/** Listagem de categorias: paginação e exclusão. Cadastro e edição ficam em CategoriaFormPage. */
 export function AdminCategorias() {
   const tratar = useErroAdmin();
+  const navigate = useNavigate();
+  const local = useLocation();
+
+  // Mensagem de sucesso enviada pela tela de cadastro/edição ao voltar para cá.
+  const avisoRecebido =
+    (local.state as { aviso?: Aviso } | null)?.aviso ?? null;
 
   const [lista, setLista] = useState<CategoriaAdmin[] | null>(null);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  const [nome, setNome] = useState("");
-  const [editando, setEditando] = useState<number | null>(null);
-  const [aviso, setAviso] = useState<{
-    tipo: "erro" | "ok";
-    texto: string;
-  } | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<Aviso | null>(avisoRecebido);
 
   async function carregar(paginaSolicitada = pagina): Promise<boolean> {
     try {
@@ -84,75 +90,12 @@ export function AdminCategorias() {
     };
   }, [tratar]);
 
-  function abrirNova() {
-    setNome("");
-    setEditando(null);
-    setAviso(null);
-  }
-
-  function abrirEdicao(categoria: CategoriaAdmin) {
-    setNome(categoria.nome);
-    setEditando(categoria.id);
-    setAviso(null);
-  }
-
-  function fechar() {
-    setNome("");
-    setEditando(null);
-  }
-
-  async function salvar(event: SubmitEvent) {
-    event.preventDefault();
-    setAviso(null);
-
-    const nomeFinal = nome.trim();
-
-    if (nomeFinal.length < 2 || nomeFinal.length > 100) {
-      setAviso({
-        tipo: "erro",
-        texto: "O nome deve ter entre 2 e 100 caracteres.",
-      });
-      return;
+  // Limpa o state do histórico para a mensagem não reaparecer ao recarregar a página.
+  useEffect(() => {
+    if (avisoRecebido) {
+      navigate(local.pathname, { replace: true, state: null });
     }
-
-    setEnviando(true);
-
-    try {
-      let mensagem: string;
-
-      if (editando === null) {
-        const { data } = await api.post<CategoriaAdmin>(
-          "/admin/categorias",
-          { nome: nomeFinal },
-        );
-
-        mensagem = `Categoria ${data.nome} criada.`;
-      } else {
-        const { data } = await api.put<CategoriaAdmin>(
-          `/admin/categorias/${editando}`,
-          { nome: nomeFinal },
-        );
-
-        mensagem = `Categoria ${data.nome} atualizada.`;
-      }
-
-      fechar();
-
-      setAviso({
-        tipo: "ok",
-        texto: mensagem,
-      });
-
-      await carregar(pagina);
-    } catch (e) {
-      setAviso({
-        tipo: "erro",
-        texto: tratar(e).mensagem,
-      });
-    } finally {
-      setEnviando(false);
-    }
-  }
+  }, [avisoRecebido, local.pathname, navigate]);
 
   async function excluir(categoria: CategoriaAdmin) {
     if (!window.confirm(`Excluir a categoria ${categoria.nome}?`)) return;
@@ -186,15 +129,13 @@ export function AdminCategorias() {
           )}
         </h2>
 
-        {editando === null && !nome && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={abrirNova}
-          >
-            + Nova categoria
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => navigate("/admin/categorias/novo")}
+        >
+          + Nova categoria
+        </button>
       </div>
 
       {aviso && (
@@ -204,51 +145,6 @@ export function AdminCategorias() {
         >
           {aviso.texto}
         </div>
-      )}
-
-      {(editando !== null || nome !== "") && (
-        <form
-          onSubmit={salvar}
-          noValidate
-          className="formulario admin-form"
-          aria-label={editando === null ? "Nova categoria" : "Editar categoria"}
-        >
-          <h3>
-            {editando === null ? "Nova categoria" : "Editar categoria"}
-          </h3>
-
-          <label htmlFor="categoria-nome">Nome da categoria</label>
-
-          <input
-            id="categoria-nome"
-            type="text"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Ex.: Camisas"
-            minLength={2}
-            maxLength={100}
-            required
-          />
-
-          <div className="admin-acoes">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={enviando}
-            >
-              {enviando ? "Salvando..." : "Salvar"}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={fechar}
-              disabled={enviando}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
       )}
 
       {lista === null && !aviso ? (
@@ -280,7 +176,9 @@ export function AdminCategorias() {
                         <button
                           type="button"
                           className="btn btn-outline btn-pequeno"
-                          onClick={() => abrirEdicao(categoria)}
+                          onClick={() =>
+                            navigate(`/admin/categorias/${categoria.id}/editar`)
+                          }
                           aria-label={`Editar categoria ${categoria.nome}`}
                         >
                           Editar

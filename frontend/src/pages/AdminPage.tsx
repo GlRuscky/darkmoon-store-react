@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AdminCupons } from "../componentes/admin/AdminCupons";
 import { AdminProdutos } from "../componentes/admin/AdminProdutos";
 import { AdminUsuarios } from "../componentes/admin/AdminUsuarios";
@@ -19,7 +19,13 @@ type AbaId = (typeof ABAS)[number]["id"];
 /** Painel administrativo. Só chega aqui quem passou pela <RotaProtegida papel="admin" />. */
 export function AdminPage() {
   const { usuario } = useAuth();
-  const [aba, setAba] = useState<AbaId>("produtos");
+  const local = useLocation();
+
+  // Aba pedida por quem navegou para cá (ex.: formulário de categoria ao salvar/cancelar).
+  // Sem pedido, abre em produtos, como antes.
+  const [aba, setAba] = useState<AbaId>(
+    (local.state as { aba?: AbaId } | null)?.aba ?? "produtos",
+  );
 
   return (
     <section>

@@ -17,6 +17,9 @@ import { ProdutosPage } from "./pages/ProdutosPage";
 import { PromocoesPage } from "./pages/PromocoesPage";
 import { SobrePage } from "./pages/SobrePage";
 import { PerfilPage } from "./pages/PerfilPage";
+import { ProdutoFormPage } from "./pages/ProdutoFormPage";
+import { CategoriaFormPage } from "./pages/CategoriaFormPage";
+import { CupomFormPage } from "./pages/CupomFormPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -38,6 +41,12 @@ createRoot(document.getElementById("root")!).render(
             <Route element={<RotaProtegida papel="admin" />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/produtos/novo" element={<ProdutoFormPage />} />
+              <Route path="/admin/produtos/:id/editar" element={<ProdutoFormPage />} />
+              <Route path="/admin/categorias/novo" element={<CategoriaFormPage />} />
+              <Route path="/admin/categorias/:id/editar" element={<CategoriaFormPage />} />
+              <Route path="/admin/cupons/novo" element={<CupomFormPage />} />
+              <Route path="/admin/cupons/:codigo/editar" element={<CupomFormPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

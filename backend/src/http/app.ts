@@ -1,4 +1,3 @@
-
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Banco } from "../infra/banco.ts";
 import { SenhaHasher } from "../domain/SenhaHasher.ts";
@@ -324,6 +323,14 @@ export function criarApp(
             );
           }
 
+          if (chave !== undefined && metodo === "GET") {
+            return enviar(
+              res,
+              200,
+              await catalogo.buscarCategoria(idNumerico(chave)),
+            );
+          }
+
           if (chave !== undefined && metodo === "PUT") {
             return enviar(
               res,
@@ -365,6 +372,14 @@ export function criarApp(
               res,
               201,
               await catalogo.criarProduto(await lerJson(req)),
+            );
+          }
+
+          if (chave !== undefined && metodo === "GET") {
+            return enviar(
+              res,
+              200,
+              await catalogo.buscarProduto(idNumerico(chave)),
             );
           }
 

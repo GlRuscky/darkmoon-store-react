@@ -1,4 +1,3 @@
-
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import type { PoolConnection } from "mysql2/promise";
 import type { Banco } from "../infra/banco.ts";
@@ -89,6 +88,23 @@ export class CatalogoAdminService {
     return linhas[0].id_categoria;
   }
 
+  async #categoriaPorId(id: number): Promise<{ id: number; nome: string }> {
+    const [linhas] = await this.#db.execute<
+      (RowDataPacket & { id_categoria: number; nome: string })[]
+    >(
+      `SELECT id_categoria, nome
+       FROM categorias
+       WHERE id_categoria = ?`,
+      [id],
+    );
+
+    if (!linhas[0]) {
+      throw new ErroNaoEncontrado("Categoria não encontrada");
+    }
+
+    return { id: linhas[0].id_categoria, nome: linhas[0].nome };
+  }
+
   // ---------- Categorias ----------
 
   async listarCategorias(
@@ -146,6 +162,10 @@ export class CatalogoAdminService {
       porPagina,
       totalPaginas,
     };
+  }
+
+  async buscarCategoria(id: number): Promise<{ id: number; nome: string }> {
+    return this.#categoriaPorId(id);
   }
 
     async criarCategoria(corpo: unknown): Promise<{ id: number; nome: string }> {
@@ -357,6 +377,10 @@ export class CatalogoAdminService {
       porPagina,
       totalPaginas,
     };
+  }
+
+  async buscarProduto(id: number): Promise<ProdutoLinha> {
+    return this.#produtoPorId(id);
   }
 
   async #produtoPorId(id: number): Promise<ProdutoLinha> {

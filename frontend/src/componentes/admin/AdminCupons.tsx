@@ -1,16 +1,8 @@
-
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api/axios";
 import type { CupomAdmin } from "../../api/tipos";
-import {
-  CUPOM_VAZIO,
-  lerNumero,
-  semCampo,
-  validarCupom,
-  type CupomForm,
-} from "../../dominio/validacaoAdmin";
 import { useErroAdmin } from "../../hooks/useErroAdmin";
-import { Campo } from "../Campo";
 
 const POR_PAGINA = 8;
 
@@ -22,25 +14,27 @@ type CuponsPaginados = {
   totalPaginas: number;
 };
 
-/** CRUD de cupons. O código identifica o cupom e não muda depois de criado. */
+type Aviso = {
+  tipo: "erro" | "ok";
+  texto: string;
+};
+
+/** Listagem de cupons: paginação e exclusão. Cadastro e edição ficam em CupomFormPage. */
 export function AdminCupons() {
   const tratar = useErroAdmin();
+  const navigate = useNavigate();
+  const local = useLocation();
+
+  // Mensagem de sucesso enviada pela tela de cadastro/edição ao voltar para cá.
+  const avisoRecebido =
+    (local.state as { aviso?: Aviso } | null)?.aviso ?? null;
 
   const [lista, setLista] = useState<CupomAdmin[] | null>(null);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  const [aviso, setAviso] = useState<{
-    tipo: "erro" | "ok";
-    texto: string;
-  } | null>(null);
-
-  const [form, setForm] = useState<CupomForm | null>(null);
-  const [editando, setEditando] = useState<string | null>(null);
-  const [erros, setErros] = useState<Record<string, string>>({});
-  const [tentou, setTentou] = useState(false);
-  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<Aviso | null>(avisoRecebido);
 
   async function carregar(paginaSolicitada = pagina): Promise<boolean> {
     try {
@@ -96,97 +90,12 @@ export function AdminCupons() {
     };
   }, [tratar]);
 
-  const errosLocais = form
-    ? validarCupom(form, editando !== null)
-    : {};
-
-  const erroDe = (campo: string) =>
-    erros[campo] ?? (tentou ? errosLocais[campo] ?? "" : "");
-
-  function abrirNovo() {
-    setForm({ ...CUPOM_VAZIO });
-    setEditando(null);
-    setErros({});
-    setTentou(false);
-    setAviso(null);
-  }
-
-  function abrirEdicao(c: CupomAdmin) {
-    setForm({
-      codigo: c.codigo,
-      percentual: String(c.percentual),
-      ativo: c.ativo,
-    });
-    setEditando(c.codigo);
-    setErros({});
-    setTentou(false);
-    setAviso(null);
-  }
-
-  function fechar() {
-    setForm(null);
-    setEditando(null);
-    setErros({});
-    setTentou(false);
-  }
-
-  async function salvar(event: SubmitEvent) {
-    event.preventDefault();
-
-    if (!form) return;
-
-    setTentou(true);
-    setAviso(null);
-
-    if (Object.keys(errosLocais).length > 0) return;
-
-    setEnviando(true);
-
-    try {
-      const corpo = {
-        codigo: form.codigo.trim().toUpperCase(),
-        percentual: lerNumero(form.percentual),
-        ativo: form.ativo,
-      };
-
-      let mensagem: string;
-
-      if (editando === null) {
-        const { data } = await api.post<CupomAdmin>(
-          "/admin/cupons",
-          corpo,
-        );
-
-        mensagem = `Cupom ${data.codigo} criado.`;
-      } else {
-        const { data } = await api.put<CupomAdmin>(
-          `/admin/cupons/${encodeURIComponent(editando)}`,
-          corpo,
-        );
-
-        mensagem = `Cupom ${data.codigo} atualizado.`;
-      }
-
-      fechar();
-
-      setAviso({
-        tipo: "ok",
-        texto: mensagem,
-      });
-
-      await carregar(pagina);
-    } catch (e) {
-      const err = tratar(e);
-
-      setErros(err.campos);
-      setAviso({
-        tipo: "erro",
-        texto: err.mensagem,
-      });
-    } finally {
-      setEnviando(false);
+  // Limpa o state do histórico para a mensagem não reaparecer ao recarregar a página.
+  useEffect(() => {
+    if (avisoRecebido) {
+      navigate(local.pathname, { replace: true, state: null });
     }
-  }
+  }, [avisoRecebido, local.pathname, navigate]);
 
   async function excluir(c: CupomAdmin) {
     if (!window.confirm(`Excluir o cupom ${c.codigo}?`)) return;
@@ -222,15 +131,13 @@ export function AdminCupons() {
           )}
         </h2>
 
-        {!form && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={abrirNovo}
-          >
-            + Novo cupom
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => navigate("/admin/cupons/novo")}
+        >
+          + Novo cupom
+        </button>
       </div>
 
       {aviso && (
@@ -240,80 +147,6 @@ export function AdminCupons() {
         >
           {aviso.texto}
         </div>
-      )}
-
-      {form && (
-        <form
-          onSubmit={salvar}
-          noValidate
-          className="formulario admin-form"
-          aria-label={editando === null ? "Novo cupom" : "Editar cupom"}
-        >
-          <h3>
-            {editando === null
-              ? "Novo cupom"
-              : `Editar cupom ${editando}`}
-          </h3>
-
-          <div className="admin-form-grade">
-            <Campo
-              id="c-codigo"
-              rotulo="Código"
-              value={form.codigo}
-              disabled={editando !== null}
-              placeholder="DARK10"
-              onChange={(e) => {
-                setForm({ ...form, codigo: e.target.value });
-                setErros((e) => semCampo(e, "codigo"));
-              }}
-              erro={erroDe("codigo")}
-              required
-            />
-
-            <Campo
-              id="c-percentual"
-              rotulo="Desconto (%)"
-              inputMode="decimal"
-              value={form.percentual}
-              onChange={(e) => {
-                setForm({ ...form, percentual: e.target.value });
-                setErros((e) => semCampo(e, "percentual"));
-              }}
-              erro={erroDe("percentual")}
-              required
-            />
-          </div>
-
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={form.ativo}
-              onChange={(e) =>
-                setForm({ ...form, ativo: e.target.checked })
-              }
-            />
-            Cupom ativo (clientes podem usar)
-          </label>
-
-          <div className="admin-acoes">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={enviando}
-            >
-              {enviando ? "Salvando..." : "Salvar"}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={fechar}
-              disabled={enviando}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
       )}
 
       {lista === null && !aviso ? (
@@ -357,7 +190,12 @@ export function AdminCupons() {
                         <button
                           type="button"
                           className="btn btn-outline btn-pequeno"
-                          onClick={() => abrirEdicao(c)}
+                          onClick={() =>
+                            navigate(
+                              `/admin/cupons/${encodeURIComponent(c.codigo)}/editar`,
+                              { state: { cupom: c } },
+                            )
+                          }
                           aria-label={`Editar cupom ${c.codigo}`}
                         >
                           Editar
