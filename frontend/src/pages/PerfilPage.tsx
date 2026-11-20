@@ -8,21 +8,24 @@ import {
   apenasDigitos,
   formatarCpf,
   validarNome,
-  validarEmail,
   validarCpf,
+  validarSenha,
+  validarConfirmacao,
 } from "../dominio/validacao";
 
 export function PerfilPage() {
   const { usuario, atualizarUsuario } = useAuth();
 
   const [nome, setNome] = useState(usuario?.nome ?? "");
-  const [email, setEmail] = useState(usuario?.email ?? "");
   const [cpf, setCpf] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
 
   const [tocados, setTocados] = useState({
     nome: false,
-    email: false,
     cpf: false,
+    senha: false,
+    confirmarSenha: false,
   });
 
   const [erroGeral, setErroGeral] = useState("");
@@ -31,8 +34,9 @@ export function PerfilPage() {
 
   const erros = {
     nome: validarNome(nome),
-    email: validarEmail(email),
-    cpf: cpf.trim() ? validarCpf(cpf) : "",
+    cpf: validarCpf(cpf),
+    senha: validarSenha(senha),
+    confirmarSenha: validarConfirmacao(senha, confirmarSenha),
   };
 
   function tocar(campo: keyof typeof tocados) {
@@ -45,7 +49,7 @@ export function PerfilPage() {
     setErroGeral("");
     setSucesso("");
 
-    setTocados({ nome: true, email: true, cpf: true });
+    setTocados({ nome: true, cpf: true, senha: true, confirmarSenha: true });
 
     const primeiroErro = Object.entries(erros).find(
       ([, mensagem]) => mensagem,
@@ -59,30 +63,23 @@ export function PerfilPage() {
     setEnviando(true);
 
     try {
-      const dados: {
-        nome: string;
-        email: string;
-        cpf?: string;
-      } = {
+      const { data } = await api.put<UsuarioLogado>("/usuarios/me", {
         nome: nome.trim(),
-        email: email.trim(),
-      };
-
-      const cpfNovo = apenasDigitos(cpf);
-
-      if (cpfNovo) {
-        dados.cpf = cpfNovo;
-      }
-
-      const { data } = await api.put<UsuarioLogado>(
-        "/usuarios/me",
-        dados,
-      );
+        cpf: apenasDigitos(cpf),
+        senha,
+      });
 
       atualizarUsuario(data);
       setNome(data.nome);
-      setEmail(data.email);
       setCpf("");
+      setSenha("");
+      setConfirmarSenha("");
+      setTocados({
+        nome: false,
+        cpf: false,
+        senha: false,
+        confirmarSenha: false,
+      });
       setSucesso("Perfil atualizado com sucesso!");
     } catch (erro) {
       setErroGeral(lerErroApi(erro).mensagem);
@@ -131,11 +128,9 @@ export function PerfilPage() {
           rotulo="E-mail"
           type="email"
           autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onBlur={() => tocar("email")}
-          erro={tocados.email ? erros.email : undefined}
-          required
+          value={usuario.email}
+          readOnly
+          ajuda="O e-mail não pode ser alterado."
         />
 
         <Campo
@@ -151,9 +146,34 @@ export function PerfilPage() {
           erro={tocados.cpf ? erros.cpf : undefined}
           ajuda={
             usuario.cpf
-              ? `CPF cadastrado atualmente: ${usuario.cpf}. Deixe o campo vazio para manter esse CPF.`
-              : "Nenhum CPF cadastrado. Informe um CPF se desejar adicioná-lo."
+              ? `CPF cadastrado atualmente: ${usuario.cpf}.`
+              : undefined
           }
+          required
+        />
+
+        <Campo
+          id="senha"
+          rotulo="Nova senha"
+          type="password"
+          autoComplete="new-password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          onBlur={() => tocar("senha")}
+          erro={tocados.senha ? erros.senha : undefined}
+          required
+        />
+
+        <Campo
+          id="confirmarSenha"
+          rotulo="Confirmar nova senha"
+          type="password"
+          autoComplete="new-password"
+          value={confirmarSenha}
+          onChange={(e) => setConfirmarSenha(e.target.value)}
+          onBlur={() => tocar("confirmarSenha")}
+          erro={tocados.confirmarSenha ? erros.confirmarSenha : undefined}
+          required
         />
 
         <button

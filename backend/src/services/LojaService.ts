@@ -257,12 +257,39 @@ export class LojaService {
       faturamento: Number(p.faturamento),
     }));
 
-    const vendasPorMes = vendasRows.map((v) => ({
-      ...v,
+    const vendasMap = new Map(
+  vendasRows.map((v) => [
+    v.mes,
+    {
       pedidos: Number(v.pedidos),
       unidades: Number(v.unidades),
       faturamento: Number(v.faturamento),
-    }));
+    },
+  ]),
+);
+
+const hoje = new Date();
+
+const vendasPorMes = Array.from({ length: 12 }, (_, i) => {
+  const data = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth() - 11 + i,
+    1,
+  );
+
+  const mes = `${data.getFullYear()}-${String(
+    data.getMonth() + 1,
+  ).padStart(2, "0")}`;
+
+  const venda = vendasMap.get(mes);
+
+  return {
+    mes,
+    pedidos: venda?.pedidos ?? 0,
+    unidades: venda?.unidades ?? 0,
+    faturamento: venda?.faturamento ?? 0,
+  };
+});
 
     return { produtos, vendasPorMes };
   }

@@ -560,6 +560,7 @@ export class PedidosAdminService {
         id,
         dados.itens,
         produtos,
+        false, 
       );
 
       await conexao.execute<ResultSetHeader>(

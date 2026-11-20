@@ -2,14 +2,18 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { abrirBanco } from "../src/infra/banco.ts";
+import type { Banco } from "../src/infra/banco.ts";
+import { abrirBanco, configDoAmbiente } from "../src/infra/banco.ts";
 import { criarApp } from "../src/http/app.ts";
 import { SenhaHasher } from "../src/domain/SenhaHasher.ts";
 import { TokenService } from "../src/infra/TokenService.ts";
 import { UsuarioRepository } from "../src/infra/UsuarioRepository.ts";
 import { UsuarioService } from "../src/services/UsuarioService.ts";
 
+const BANCO_DE_TESTE = "loja_gotica_test";
+
 let server: Server;
+let db: Banco;
 let base = "";
 let tokenAdmin = "";
 let tokenComum = "";
@@ -17,7 +21,12 @@ let idComum = 0;
 let idAdmin = 0;
 
 const ADMIN = { nome: "Admin Teste", email: "admin@teste.com", cpf: "111.444.777-35", senha: "Admin#Lua2026" };
-const COMUM = { nome: "Ana Maria", email: "ana@exemplo.com", cpf: "529.982.247-25", senha: "Corvo#Negro99" };
+const COMUM = {
+  nome: "Ana Maria",
+  email: "comum@admin-teste.com",
+  cpf: "935.411.347-80",
+  senha: "Corvo#Negro99",
+};
 
 const chamar = (metodo: string, rota: string, token?: string, corpo?: unknown) =>
   fetch(base + rota, {
@@ -33,8 +42,8 @@ const login = async (email: string, senha: string): Promise<{ token: string; usu
   (await (await chamar("POST", "/login", undefined, { email, senha })).json()) as never;
 
 before(async () => {
-  const db = abrirBanco(":memory:");
-  new UsuarioService(new UsuarioRepository(db), new SenhaHasher(), new TokenService()).garantirAdmin(ADMIN);
+  db = await abrirBanco({ ...configDoAmbiente(), banco: BANCO_DE_TESTE });
+  await new UsuarioService(new UsuarioRepository(db), new SenhaHasher(), new TokenService()).garantirAdmin(ADMIN);
   server = criarApp(db, { segredo: "teste" });
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://localhost:${(server.address() as AddressInfo).port}`;
@@ -45,7 +54,26 @@ before(async () => {
   tokenAdmin = a.token; idAdmin = a.usuario.id;
   tokenComum = c.token; idComum = c.usuario.id;
 });
-after(() => server.close());
+
+after(async () => {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.close((erro) => {
+        if (erro) reject(erro);
+        else resolve();
+      });
+    });
+  } finally {
+    try {
+      await db.execute(
+        "DELETE FROM usuarios WHERE email IN (?, ?)",
+        [COMUM.email, "h@x.com"],
+      );
+    } finally {
+      await db.end();
+    }
+  }
+});
 
 test("login devolve o papel; cadastro pelo site é sempre 'usuario'", async () => {
   assert.equal((await login(ADMIN.email, ADMIN.senha)).usuario.papel, "admin");
@@ -87,7 +115,9 @@ test("CRUD de produtos", async () => {
   assert.equal(criado.status, 201);
   const p = (await criado.json()) as { id: number; preco: number };
   assert.equal(p.preco, 79.9);
-  assert.equal(((await (await chamar("GET", "/produtos")).json()) as unknown[]).length, 34); // aparece na loja
+  assert.equal(((await (await chamar("GET", "/produtos?por_pagina=50")).json()) as {
+  produtos: unknown[];
+}).produtos.length, 34); // aparece na loja
 
   const edit = await chamar("PUT", `/admin/produtos/${p.id}`, tokenAdmin, { ...novo, preco: 89.9, estoque: 2 });
   assert.equal(edit.status, 200);
@@ -116,7 +146,9 @@ test("produto que já foi vendido não pode ser excluído (409)", async () => {
 
 test("SQL injection no id da rota não funciona", async () => {
   assert.equal((await chamar("DELETE", "/admin/produtos/1%20OR%201=1", tokenAdmin)).status, 404);
-  assert.equal(((await (await chamar("GET", "/produtos")).json()) as unknown[]).length, 33);
+  assert.equal(((await (await chamar("GET", "/produtos?por_pagina=50")).json()) as {
+  produtos: unknown[];
+}).produtos.length, 33);
 });
 
 test("CRUD de cupons", async () => {

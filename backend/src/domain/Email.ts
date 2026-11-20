@@ -33,7 +33,7 @@ export class Email {
 
     // domínio: labels separados por ponto, TLD com 2+ letras, sem hífen nas pontas
     const dominioOk =
-      /^([a-z0-9]([a-z0-9\-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(dominio);
+      /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(dominio);
 
     if (!localOk || !dominioOk) {
       throw new ErroValidacao({ email: "E-mail inválido" });

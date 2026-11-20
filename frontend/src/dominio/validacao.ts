@@ -1,9 +1,3 @@
-/**
- * Validações do formulário de cadastro.
- * Espelham as regras do back-end (a API continua sendo a palavra final,
- * mas validar aqui dá resposta imediata ao usuário sem ida ao servidor).
- */
-
 export type NivelSenha = "fraca" | "media" | "forte";
 
 export type AvaliacaoSenha = {
@@ -41,8 +35,8 @@ export function validarEmail(valor: string): Resultado {
     local.length >= 1 && local.length <= 64 &&
     /^[a-z0-9._%+-]+$/.test(local) &&
     !local.startsWith(".") && !local.endsWith(".") && !local.includes("..");
-  const dominioOk = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(dominio);
-  return localOk && dominioOk ? "" : "E-mail inválido";
+    const dominioOk = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(dominio);
+    return localOk && dominioOk ? "" : "E-mail inválido";
 }
 
 /** Só os dígitos de um texto. */
