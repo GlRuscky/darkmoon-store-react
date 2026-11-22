@@ -1,133 +1,321 @@
-# DarkMoon Store — React + Node/TypeScript
+# DarkMoon Store — React + TypeScript + Node.js + MySQL
 
-Transcrição do projeto DarkMoon Store (antes PHP + MySQL) para **React + TypeScript (Vite)** no front-end e
-**Node + TypeScript + SQLite** no back-end. Não há PHP nem banco para instalar.
+Projeto acadêmico de e-commerce desenvolvido com **React + TypeScript (Vite)** no frontend e **Node.js + TypeScript + MySQL** no backend.
 
+O sistema possui autenticação, cadastro de usuários, catálogo de produtos, carrinho, cupons de desconto, painel administrativo e dashboard com análise descritiva.
+
+## Tecnologias
+
+| Camada | Tecnologias |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router, Axios |
+| Backend | Node.js, TypeScript, Express |
+| Banco de dados | MySQL 8.4, mysql2 |
+| Autenticação | JWT e senhas protegidas com scrypt |
+| Infraestrutura | Docker, Docker Compose e Nginx |
+| Testes | Node.js Test Runner |
+
+## Estrutura do projeto
+
+```text
+backend/
+  src/
+    domain/
+    http/
+    infra/
+    services/
+  tests/
+  Dockerfile
+  .dockerignore
+
+frontend/
+  src/
+  Dockerfile
+  nginx.conf
+  .dockerignore
+
+agents/
+docker-compose.yml
+loja_gotica_test.sql
+README.md
 ```
-backend/    API REST (Node 22, sem dependências em runtime)
-frontend/   Site em React (Vite + react-router-dom + axios)
+
+## Como executar com Docker
+
+O Docker é a forma recomendada de executar o projeto completo.
+
+**Requisitos:**
+- Docker Desktop com Docker Compose.
+- Arquivo `.env.docker` configurado na raiz do projeto.
+
+O arquivo `.env.docker` deve conter as variáveis necessárias para o banco, a API e a criação do administrador inicial:
+
+```env
+MYSQL_ROOT_PASSWORD=
+MYSQL_DATABASE=loja_gotica_test
+MYSQL_USER=darkmoon
+MYSQL_PASSWORD=
+
+DB_NAME=loja_gotica_test
+DB_USER=darkmoon
+DB_PASSWORD=
+
+JWT_SECRET=
+ADMIN_NOME=Administrador DarkMoon
+ADMIN_EMAIL=admin@darkmoon.com
+ADMIN_CPF=
+ADMIN_SENHA=
+
+CORS_ORIGENS=http://localhost:5173
 ```
 
-## Como rodar
+Preencha os valores secretos com credenciais próprias. Não compartilhe nem envie esse arquivo ao GitHub.
 
-Requisito: **Node 22.5 ou superior** (a API usa o SQLite embutido do Node).
+Na raiz do projeto, execute:
 
 ```bash
-# Terminal 1 — API (http://localhost:3000)
-cd backend
+docker compose --env-file .env.docker up --build -d
+```
+
+Acesse:
+
+- Loja: http://localhost:5173
+- API: http://localhost:5173/api
+
+Para verificar os serviços:
+
+```bash
+docker compose --env-file .env.docker ps
+```
+
+Para acompanhar os logs:
+
+```bash
+docker compose --env-file .env.docker logs -f
+```
+
+Para encerrar:
+
+```bash
+docker compose --env-file .env.docker down
+```
+
+Os dados do MySQL ficam armazenados em volume Docker. O arquivo `loja_gotica_test.sql` é utilizado na inicialização de um volume de banco novo. Se o volume já tiver sido inicializado, o script não será importado novamente.
+
+## Execução em desenvolvimento
+
+Também é possível executar frontend e backend separadamente.
+
+**Requisitos:**
+- Node.js 22.18 ou superior.
+- MySQL 8.4.
+- Banco de dados MySQL configurado e com o esquema do projeto importado.
+
+### Backend
+
+Configure as variáveis de ambiente no arquivo `backend/.env`:
+
+```env
+PORT=3000
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=loja_gotica
+DB_USER=darkmoon
+DB_PASSWORD=
+
+JWT_SECRET=
+CORS_ORIGENS=http://localhost:5173
+
+ADMIN_NOME=Administrador DarkMoon
+ADMIN_EMAIL=admin@darkmoon.com
+ADMIN_CPF=
+ADMIN_SENHA=
+```
+
+Na pasta `backend/`:
+
+```bash
 npm install
 npm start
+```
 
-# Terminal 2 — site (http://localhost:5173)
-cd frontend
+A API ficará disponível em `http://localhost:3000`.
+
+### Frontend
+
+Na pasta `frontend/`:
+
+```bash
 npm install
 npm run dev
 ```
 
-Na primeira execução a API cria `backend/data/darkmoon.db` e popula produtos, cupons e 12 meses de vendas simuladas.
-Se a API estiver em outra porta, copie `frontend/.env.example` para `frontend/.env` e ajuste `VITE_API_URL`.
+O site ficará disponível em `http://localhost:5173`.
 
-Testes automatizados: `npm test` (em `backend/` e em `frontend/`).
+## Verificações e testes
 
-**Docker é opcional.** Com Docker instalado: `docker compose up --build` e abra http://localhost:5173 (o banco SQLite fica no volume `dados`). O arquivo `loja_gotica.sql` é o dump antigo do MySQL/PHP e **não é usado** pelo projeto.
+Na pasta `backend/`:
 
-## Rotas do site
-
-| Rota | O que é |
-|---|---|
-| `/` `/produtos` `/promocoes` `/sobre` | Páginas da loja (transcritas do PHP) |
-| `/carrinho` | Carrinho com cupom, salvo no navegador |
-| `/cadastro` | **Cadastro de usuário** |
-| `/login` | Login (recebe o aviso de cadastro concluído) |
-| `/dashboard` | **Análise descritiva** (**só administrador**) |
-| `/admin` | **Painel admin**: CRUD de produtos, cupons e usuários (**só administrador**) |
-
-## API
-
-| Método e rota | Descrição |
-|---|---|
-| `POST /usuarios` | Cadastro: `{ nome, email, cpf, senha, confirmarSenha? }` → 201 / 400 / 409 |
-| `POST /login` | `{ email, senha }` → `{ token, usuario }` / 401 |
-| `GET /produtos` | Filtros: `busca`, `categoria`, `preco_min`, `preco_max` |
-| `GET /cupons/:codigo` | `{ codigo, percentual }` ou 404 |
-| `GET /dashboard` | Dados para os gráficos (**admin**, com `Authorization: Bearer <token>`) |
-| `GET/POST /admin/produtos`, `PUT/DELETE /admin/produtos/:id` | CRUD de produtos (**admin**) |
-| `GET/POST /admin/cupons`, `PUT/DELETE /admin/cupons/:codigo` | CRUD de cupons (**admin**) |
-| `GET /admin/usuarios`, `PATCH /admin/usuarios/:id` `{ papel }`, `DELETE /admin/usuarios/:id` | Gerenciar usuários (**admin**) |
-
-Sem token a API responde **401**; com token de usuário comum, **403**.
-
-Erros de validação seguem sempre o mesmo formato, para o front exibir cada mensagem no campo certo:
-
-```json
-{ "erro": "Dados inválidos", "campos": { "cpf": "CPF inválido", "senha": "Senha fraca. Tente ..." } }
+```bash
+npm run typecheck
+npm test
 ```
 
-## Administrador e painel `/admin`
+Na pasta `frontend/`:
 
-O administrador inicial é criado na primeira vez que a API sobe (se o e-mail ainda não existir):
+```bash
+npm run build
+```
 
-| | |
+## Administrador e painel administrativo
+
+O administrador inicial é criado automaticamente quando a API inicia, caso o e-mail configurado ainda não exista no banco.
+
+As configurações são realizadas por variáveis de ambiente:
+
+- `ADMIN_NOME`
+- `ADMIN_EMAIL`
+- `ADMIN_CPF`
+- `ADMIN_SENHA`
+
+A variável `ADMIN_SENHA` é obrigatória. Não existe senha padrão no código.
+
+Quem se cadastra pela loja recebe sempre o papel de usuário comum. A alteração de papel é restrita ao painel administrativo.
+
+O sistema também possui as seguintes proteções:
+
+- O papel do usuário é conferido no banco durante as requisições protegidas.
+- Usuários sem autenticação recebem HTTP 401.
+- Usuários comuns tentando acessar operações administrativas recebem HTTP 403.
+- Um administrador não pode rebaixar nem excluir a própria conta.
+- Produtos que possuem vendas não podem ser excluídos, preservando o histórico de pedidos.
+
+## Funcionalidades da loja
+
+- Página inicial e catálogo de produtos.
+- Pesquisa e filtros por categoria e preço.
+- Paginação de produtos.
+- Página de promoções.
+- Carrinho de compras.
+- Aplicação e validação de cupons.
+- Cadastro e login de usuários.
+- Perfil com edição dos dados permitidos.
+
+## Painel administrativo
+
+O painel possui gerenciamento de:
+
+| Área | Funcionalidades |
 |---|---|
-| E-mail | `admin@darkmoon.com` |
-| Senha | `Admin#Lua2026` |
+| Produtos | Cadastro, consulta, edição e exclusão |
+| Categorias | Cadastro, consulta, edição e exclusão |
+| Cupons | Cadastro, consulta, edição e exclusão |
+| Usuários | Consulta, alteração de papel e exclusão |
+| Pedidos | Consulta, edição, atualização de status e exclusão conforme as regras do sistema |
 
-Para trocar, defina `ADMIN_EMAIL`, `ADMIN_SENHA`, `ADMIN_NOME` e `ADMIN_CPF` antes de `npm start`
-(**troque a senha padrão se for publicar o site**). Quem se cadastra pelo site é sempre usuário comum;
-o papel só muda pelo painel (aba *Usuários*), e o admin não consegue rebaixar nem excluir a própria conta.
+As operações administrativas são protegidas por autenticação e autorização.
 
-- O papel é conferido **no banco a cada requisição** (não só no token): rebaixou ou excluiu um admin, o acesso some na hora.
-- O front esconde as telas (`RotaProtegida papel="admin"`), mas **quem protege os dados é a API** (401/403).
-- Produto que já tem vendas não pode ser excluído (apagaria o histórico do dashboard): zere o estoque.
-- Bancos criados antes do painel são migrados sozinhos (a coluna `papel` é adicionada, nenhum dado se perde).
+## Rotas principais da API
 
-## Cadastro de usuário
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/saude` | Verificação de saúde da API |
+| POST | `/usuarios` | Cadastro de usuário |
+| POST | `/login` | Autenticação |
+| GET | `/usuarios/me` | Consulta do perfil autenticado |
+| PUT | `/usuarios/me` | Atualização do próprio perfil |
+| GET | `/produtos` | Listagem de produtos com filtros e paginação |
+| GET | `/cupons/:codigo` | Validação de cupom |
+| GET | `/dashboard` | Dados do dashboard administrativo |
+| `/admin/produtos` | CRUD | Gerenciamento de produtos |
+| `/admin/categorias` | CRUD | Gerenciamento de categorias |
+| `/admin/cupons` | CRUD | Gerenciamento de cupons |
+| `/admin/usuarios` | CRUD restrito | Gerenciamento de usuários |
+| `/admin/pedidos` | CRUD restrito | Gerenciamento de pedidos |
 
-**Campos obrigatórios:** nome, e-mail, senha e CPF.
+As rotas administrativas exigem autenticação e papel de administrador.
 
-- **CPF** — 11 dígitos, aceita com ou sem máscara, confere os 2 dígitos verificadores (módulo 11) e rejeita
-  sequências repetidas (`111.111.111-11`). Salvo só com números; a API devolve mascarado (`***.***.247-25`).
-- **E-mail** — formato validado (parte local, domínio, TLD), normalizado para minúsculas; único no banco.
-- **Senha** — mínimo 8 caracteres, com letras e números, e nível **média ou forte**. A pontuação (0–6) soma:
-  8+ caracteres, 12+ caracteres, minúscula, maiúscula, número e símbolo. 4 pontos = média, 5 ou mais = forte;
-  senhas comuns (`12345678`, `abcd1234`...) e sequências (`123456`, `aaaa`) ficam sempre "fracas".
-  Guardada com **scrypt** (salt aleatório) e comparada em tempo constante.
-- **Front** — verificação dupla da senha, máscara de CPF, medidor de força, erros por campo, bloqueio de duplo clique,
-  tratamento de API fora do ar / timeout / 400 / 409 / 5xx e **redirecionamento para `/login`** após o sucesso.
+## Validações e segurança
 
-## Gráficos (Probabilidade e Estatística)
+### Cadastro de usuários
 
-Cada gráfico responde a uma pergunta de negócio, descrita na própria página.
+Campos obrigatórios: nome, e-mail, CPF e senha.
+
+- **CPF:** validação dos 11 dígitos e dos dígitos verificadores, aceitando entrada com ou sem máscara.
+- **E-mail:** validação de formato, normalização e unicidade.
+- **Senha:** validação de tamanho e força.
+- **Confirmação:** verificação de correspondência entre senha e confirmação no cadastro.
+- **Persistência:** senhas armazenadas com hash e salt, sem salvar texto puro.
+
+### Autenticação e autorização
+
+- Autenticação por JWT.
+- Senhas verificadas com hash seguro.
+- Rotas protegidas por autenticação e autorização.
+- Validação do papel do usuário no banco.
+- Consultas SQL parametrizadas para reduzir riscos de SQL Injection.
+
+### Erros de validação
+
+A API utiliza um formato padronizado para retornar erros:
+
+```json
+{
+  "erro": "Dados inválidos",
+  "campos": {
+    "cpf": "CPF inválido"
+  }
+}
+```
+
+## Dashboard — Probabilidade e Estatística
+
+O dashboard apresenta gráficos e estatísticas descritivas para análise das vendas.
 
 | Gráfico | Tipo | Pergunta de negócio |
 |---|---|---|
-| Faturamento mensal | Série temporal + média móvel | Qual a tendência e a sazonalidade das vendas? |
-| Faturamento por categoria | Colunas | Em qual linha de produto investir? |
-| Mais vendidos | Barras horizontais | O que repor primeiro no estoque? |
-| Distribuição de preços | Histograma (regra de Sturges) | Onde o catálogo se concentra? |
-| Preço × unidades | Dispersão + regressão linear | O preço influencia a demanda? (r, R², equação) |
+| Faturamento mensal | Série temporal | Qual a evolução das vendas? |
+| Faturamento por categoria | Colunas | Quais categorias geram mais faturamento? |
+| Mais vendidos | Barras | Quais produtos possuem maior saída? |
+| Distribuição de preços | Histograma | Como os preços estão distribuídos? |
+| Preço × unidades | Dispersão | Existe relação entre preço e quantidade vendida? |
 
-Mais uma tabela de estatísticas descritivas (n, média, mediana, desvio padrão, mínimo, máximo).
-**Os dados de venda são simulados** (semente fixa, resultado sempre igual): o banco original tinha só 5 pedidos.
-O simulador está em `backend/src/data/vendas.ts`.
+Também são apresentadas medidas estatísticas como quantidade de registros, média, mediana, desvio padrão, mínimo e máximo.
 
-## Tech Forge — encapsulamento
+Parte dos dados utilizados na apresentação acadêmica é simulada, permitindo demonstrar os métodos estatísticos mesmo com o histórico limitado de pedidos.
 
-| Classe | O que mostra |
+## Encapsulamento e orientação a objetos
+
+O projeto utiliza conceitos de Programação Orientada a Objetos e separação de responsabilidades.
+
+| Arquivo / classe | Conceito aplicado |
 |---|---|
-| `backend/src/domain/Cpf.ts`, `Email.ts` | Objetos de valor: construtor privado + `criar()` que valida. Nunca existe um CPF/e-mail inválido. Sem setters. |
-| `backend/src/domain/Senha.ts` | Texto da senha em campo `#privado`, **sem getter**; só `gerarHash()` o utiliza. `toString`/`toJSON` devolvem `********`. |
-| `backend/src/domain/Usuario.ts` | Todo estado em `#campos`. `nome` tem **get + set com validação**; `email`, `cpf`, `id` só têm get; `senhaHash` não tem getter (usa `conferirSenha()` e `paraPersistencia()`). `criadoEm` devolve cópia. |
-| `backend/src/domain/Produto.ts`, `Cupom.ts` | Objetos de valor imutáveis: construtor privado, `#dados` congelado, `criar()` valida todos os campos; sem setters. |
-| `backend/src/domain/Papel.ts` | Papéis permitidos; `Usuario.papel` só tem getter e mudar o papel gera uma cópia (`comPapel`). |
-| `backend/src/domain/erros.ts` | Erros com `#campos` congelado. |
-| `backend/src/infra/*`, `services/*` | Dependências em `#privados`, injetadas pelo construtor. |
-| `frontend/src/dominio/Carrinho.ts` | Carrinho **imutável**: `#itens` nunca muda por fora; getters só do que a tela lê; cada operação devolve um novo carrinho. |
-| `frontend/src/dominio/CupomDesconto.ts` | Percentual validado (0–100) no construtor; sem setter. |
+| `Cpf.ts` e `Email.ts` | Objetos de valor com validação |
+| `Senha.ts` | Encapsulamento da senha |
+| `Usuario.ts` | Estado privado e métodos controlados |
+| `Produto.ts` e `Cupom.ts` | Validação e imutabilidade |
+| `Papel.ts` | Representação dos papéis de usuário |
+| `erros.ts` | Classes específicas de erro |
+| `Carrinho.ts` | Carrinho imutável |
+| `CupomDesconto.ts` | Validação do percentual de desconto |
+| `services/` | Regras de negócio |
+| `infra/` | Persistência e infraestrutura |
 
-## O que mudou em relação ao PHP
+As dependências são organizadas e injetadas nas classes responsáveis, favorecendo a separação entre domínio, infraestrutura e regras de negócio.
 
-- `cadastro.php` montava SQL com texto concatenado (risco de SQL Injection) → agora só *prepared statements*.
-- `$_SESSION['carrinho']` → `Carrinho` salvo no `localStorage`.
-- `dashboard/api.php` + `app.ts` → `GET /dashboard` + página React.
-- O painel `admin/` não estava no repositório PHP enviado, então foi **criado do zero** neste projeto (seção *Administrador e painel `/admin`*).
+## Histórico do projeto
+
+O DarkMoon Store foi desenvolvido a partir de uma versão anterior em PHP e MySQL, sendo posteriormente reestruturado com React, TypeScript e Node.js.
+
+Entre as mudanças estão:
+
+- Substituição das páginas PHP por uma interface React.
+- Criação de uma API REST em Node.js e TypeScript.
+- Uso de consultas parametrizadas no acesso ao MySQL.
+- Implementação de autenticação e autorização.
+- Desenvolvimento do painel administrativo.
+- Separação das regras de negócio em serviços e classes de domínio.
+- Containerização da aplicação com Docker.
+- Utilização do Nginx para servir o frontend e encaminhar as requisições à API.
+
+O projeto mantém o foco em segurança, organização, orientação a objetos, testes e aplicação dos conteúdos acadêmicos.
